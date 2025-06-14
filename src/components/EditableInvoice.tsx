@@ -3,14 +3,14 @@ import React, { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, FileSpreadsheet } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import * as XLSX from 'xlsx';
 import { toast } from '@/hooks/use-toast';
 import InvoiceHeader from './invoice/InvoiceHeader';
 import PartyDetails from './invoice/PartyDetails';
 import ItemTable from './invoice/ItemTable';
 import SummaryFooter from './invoice/SummaryFooter';
 import BankDetails from './invoice/BankDetails';
+import { exportToPNG } from '../utils/pngExport';
+import { exportInvoiceToExcel } from '../utils/excelExport';
 
 export interface InvoiceItem {
   id: string;
@@ -123,25 +123,14 @@ const EditableInvoice = () => {
   };
 
   const downloadAsPNG = async () => {
-    if (!invoiceRef.current) return;
+    const result = await exportToPNG(invoiceRef, invoiceData.invoiceNumber);
     
-    try {
-      const canvas = await html2canvas(invoiceRef.current, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-      });
-      
-      const link = document.createElement('a');
-      link.download = `invoice-${invoiceData.invoiceNumber.replace('/', '-')}.png`;
-      link.href = canvas.toDataURL();
-      link.click();
-      
+    if (result?.success) {
       toast({
         title: "Invoice Downloaded",
         description: "Your invoice has been saved as PNG.",
       });
-    } catch (error) {
-      console.error('Error downloading invoice:', error);
+    } else {
       toast({
         title: "Download Failed",
         description: "There was an error downloading the invoice.",
@@ -151,129 +140,13 @@ const EditableInvoice = () => {
   };
 
   const exportToExcel = () => {
-    const { subtotal, cgst, sgst, grandTotal } = calculateTotals();
-    
-    // Create detailed Excel export matching the invoice format
-    const worksheetData = [
-      ['TAX INVOICE'],
-      [''],
-      ['Invoice Number', invoiceData.invoiceNumber, '', 'Dated', invoiceData.date],
-      [''],
-      ['Delivery Note', invoiceData.deliveryNote, '', 'Mode/Terms of Payment', invoiceData.paymentTerms],
-      ['Reference No. & Date.', `${invoiceData.referenceNo} dt. ${invoiceData.referenceDate}`, '', 'Other References', invoiceData.otherReferences],
-      ['Buyer\'s Order No.', invoiceData.buyerOrderNo, '', 'Dated', invoiceData.buyerOrderDate],
-      ['Dispatch Doc No.', invoiceData.dispatchDocNo, '', 'Delivery Note Date', invoiceData.deliveryNoteDate],
-      ['Dispatched through', invoiceData.dispatchedThrough, '', 'Destination', invoiceData.destination],
-      ['Terms of Delivery', invoiceData.termsOfDelivery],
-      [''],
-      ['CONSIGNEE (Ship to)', '', '', 'BUYER (Bill to)'],
-      [invoiceData.seller.name, '', '', invoiceData.buyer.name],
-      [invoiceData.seller.address, '', '', invoiceData.buyer.address],
-      [`GSTIN/UIN: ${invoiceData.seller.gstin}`, '', '', `GSTIN/UIN: ${invoiceData.buyer.gstin}`],
-      [`State Name: Maharashtra, Code: ${invoiceData.seller.stateCode}`, '', '', `State Name: Maharashtra, Code: ${invoiceData.buyer.stateCode}`],
-      [''],
-      ['Sl', 'Description of Goods', 'HSN/SAC', 'GST Rate', 'Quantity', 'Rate', 'per', 'Amount'],
-      ['No.', '', '', '', '', '', '', ''],
-      ...invoiceData.items.map((item, index) => [
-        index + 1,
-        item.description,
-        item.hsn,
-        `${item.gstRate}%`,
-        item.quantity,
-        item.rate.toFixed(2),
-        'CFT',
-        item.amount.toFixed(2)
-      ]),
-      [''],
-      ['', '', '', '', '', 'Total', '', subtotal.toFixed(2)],
-      [''],
-      ['', '', '', '', '', 'Add: CGST', '', cgst.toFixed(2)],
-      ['', '', '', '', '', 'Add: SGST', '', sgst.toFixed(2)],
-      [''],
-      ['', '', '', '', '', 'Total Tax Amount', '', (cgst + sgst).toFixed(2)],
-      ['', '', '', '', '', 'Total Amount after Tax', '', grandTotal.toFixed(2)],
-      [''],
-      ['Amount Chargeable (in words)'],
-      [`INR ${this.numberToWords(grandTotal)} Only`],
-      [''],
-      ['Declaration'],
-      [invoiceData.declaration],
-      [''],
-      ['Company\'s Bank Details'],
-      [`A/c Holder\'s Name: ${invoiceData.bankDetails.accountName}`],
-      [`Bank Name: ${invoiceData.bankDetails.bankName}`],
-      [`A/c No.: ${invoiceData.bankDetails.accountNumber}`],
-      [`Branch & IFS Code: ${invoiceData.bankDetails.ifscCode}`],
-      [''],
-      ['for ' + invoiceData.seller.name],
-      [''],
-      [''],
-      ['Authorised Signatory']
-    ];
-
-    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-    
-    // Set column widths
-    worksheet['!cols'] = [
-      {wch: 5}, {wch: 25}, {wch: 10}, {wch: 8}, {wch: 10}, {wch: 10}, {wch: 5}, {wch: 12}
-    ];
-    
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Invoice');
-    
-    XLSX.writeFile(workbook, `invoice-${invoiceData.invoiceNumber.replace('/', '-')}.xlsx`);
+    const totals = calculateTotals();
+    exportInvoiceToExcel(invoiceData, totals);
     
     toast({
       title: "Excel Export Complete",
       description: "Your invoice has been exported to Excel.",
     });
-  };
-
-  // Helper function to convert numbers to words (simplified version)
-  const numberToWords = (num: number): string => {
-    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
-    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-    
-    if (num === 0) return 'Zero';
-    
-    const integerPart = Math.floor(num);
-    const decimalPart = Math.round((num - integerPart) * 100);
-    
-    let result = '';
-    
-    // Convert integer part
-    if (integerPart >= 10000000) {
-      result += numberToWords(Math.floor(integerPart / 10000000)) + ' Crore ';
-      integerPart %= 10000000;
-    }
-    if (integerPart >= 100000) {
-      result += numberToWords(Math.floor(integerPart / 100000)) + ' Lakh ';
-      integerPart %= 100000;
-    }
-    if (integerPart >= 1000) {
-      result += numberToWords(Math.floor(integerPart / 1000)) + ' Thousand ';
-      integerPart %= 1000;
-    }
-    if (integerPart >= 100) {
-      result += ones[Math.floor(integerPart / 100)] + ' Hundred ';
-      integerPart %= 100;
-    }
-    if (integerPart >= 20) {
-      result += tens[Math.floor(integerPart / 10)] + ' ';
-      integerPart %= 10;
-    }
-    if (integerPart >= 10) {
-      result += teens[integerPart - 10] + ' ';
-    } else if (integerPart > 0) {
-      result += ones[integerPart] + ' ';
-    }
-    
-    if (decimalPart > 0) {
-      result += 'and ' + decimalPart + '/100 ';
-    }
-    
-    return result.trim();
   };
 
   const totals = calculateTotals();
