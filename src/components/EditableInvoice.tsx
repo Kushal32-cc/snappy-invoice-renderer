@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -102,7 +101,6 @@ const EditableInvoice = () => {
     
     try {
       const canvas = await html2canvas(invoiceRef.current, {
-        quality: 0.95,
         scale: 2,
         backgroundColor: '#ffffff',
       });
