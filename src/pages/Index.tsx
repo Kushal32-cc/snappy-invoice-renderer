@@ -1,17 +1,9 @@
 
 import React from 'react';
-import Invoice from '@/components/Invoice';
-import InvoiceLoader from '@/components/InvoiceLoader';
-import { useInvoiceData } from '@/hooks/useInvoiceData';
+import EditableInvoice from '@/components/EditableInvoice';
 
 const Index = () => {
-  const { invoiceData, loading } = useInvoiceData();
-
-  if (loading || !invoiceData) {
-    return <InvoiceLoader />;
-  }
-
-  return <Invoice data={invoiceData} />;
+  return <EditableInvoice />;
 };
 
 export default Index;
