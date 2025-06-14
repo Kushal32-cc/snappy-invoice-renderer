@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,12 +44,25 @@ export interface InvoiceData {
   items: InvoiceItem[];
   bankDetails: BankInfo;
   declaration: string;
+  deliveryNote: string;
+  paymentTerms: string;
+  referenceNo: string;
+  referenceDate: string;
+  otherReferences: string;
+  buyerOrderNo: string;
+  buyerOrderDate: string;
+  dispatchDocNo: string;
+  deliveryNoteDate: string;
+  dispatchedThrough: string;
+  destination: string;
+  termsOfDelivery: string;
 }
 
 const EditableInvoice = () => {
   const invoiceRef = useRef<HTMLDivElement>(null);
   
-  const [invoiceData, setInvoiceData] = useState<InvoiceData>({
+  // Mock data that would come from backend
+  const [invoiceData] = useState<InvoiceData>({
     invoiceNumber: '020/25-26',
     date: '24-Apr-25',
     seller: {
@@ -80,7 +94,19 @@ const EditableInvoice = () => {
       accountNumber: '6226005000000886',
       ifscCode: 'PUNB0622600'
     },
-    declaration: 'we declare that this invoice the actual price of the goods described and that all the particulars are correct and true'
+    declaration: 'we declare that this invoice the actual price of the goods described and that all the particulars are correct and true',
+    deliveryNote: 'DN-2025-001',
+    paymentTerms: 'Net 30 Days',
+    referenceNo: 'REF-2025-ABC',
+    referenceDate: '20-Apr-25',
+    otherReferences: 'PO-2025-XYZ',
+    buyerOrderNo: 'BO-2025-123',
+    buyerOrderDate: '18-Apr-25',
+    dispatchDocNo: 'DD-2025-456',
+    deliveryNoteDate: '24-Apr-25',
+    dispatchedThrough: 'Road Transport',
+    destination: 'Nagpur, Maharashtra',
+    termsOfDelivery: 'FOB Destination'
   });
 
   const calculateTotals = () => {
@@ -127,43 +153,71 @@ const EditableInvoice = () => {
   const exportToExcel = () => {
     const { subtotal, cgst, sgst, grandTotal } = calculateTotals();
     
+    // Create detailed Excel export matching the invoice format
     const worksheetData = [
-      ['Invoice Number', invoiceData.invoiceNumber],
-      ['Date', invoiceData.date],
+      ['TAX INVOICE'],
       [''],
-      ['SELLER DETAILS'],
-      ['Name', invoiceData.seller.name],
-      ['Address', invoiceData.seller.address],
-      ['GSTIN/UIN', invoiceData.seller.gstin],
-      ['State Code', invoiceData.seller.stateCode],
+      ['Invoice Number', invoiceData.invoiceNumber, '', 'Dated', invoiceData.date],
       [''],
-      ['BUYER DETAILS'],
-      ['Name', invoiceData.buyer.name],
-      ['Address', invoiceData.buyer.address],
-      ['GSTIN/UIN', invoiceData.buyer.gstin],
-      ['State Code', invoiceData.buyer.stateCode],
+      ['Delivery Note', invoiceData.deliveryNote, '', 'Mode/Terms of Payment', invoiceData.paymentTerms],
+      ['Reference No. & Date.', `${invoiceData.referenceNo} dt. ${invoiceData.referenceDate}`, '', 'Other References', invoiceData.otherReferences],
+      ['Buyer\'s Order No.', invoiceData.buyerOrderNo, '', 'Dated', invoiceData.buyerOrderDate],
+      ['Dispatch Doc No.', invoiceData.dispatchDocNo, '', 'Delivery Note Date', invoiceData.deliveryNoteDate],
+      ['Dispatched through', invoiceData.dispatchedThrough, '', 'Destination', invoiceData.destination],
+      ['Terms of Delivery', invoiceData.termsOfDelivery],
       [''],
-      ['ITEMS'],
-      ['S.No', 'Description', 'HSN/SAC', 'Quantity', 'Rate', 'GST Rate', 'Amount'],
+      ['CONSIGNEE (Ship to)', '', '', 'BUYER (Bill to)'],
+      [invoiceData.seller.name, '', '', invoiceData.buyer.name],
+      [invoiceData.seller.address, '', '', invoiceData.buyer.address],
+      [`GSTIN/UIN: ${invoiceData.seller.gstin}`, '', '', `GSTIN/UIN: ${invoiceData.buyer.gstin}`],
+      [`State Name: Maharashtra, Code: ${invoiceData.seller.stateCode}`, '', '', `State Name: Maharashtra, Code: ${invoiceData.buyer.stateCode}`],
+      [''],
+      ['Sl', 'Description of Goods', 'HSN/SAC', 'GST Rate', 'Quantity', 'Rate', 'per', 'Amount'],
+      ['No.', '', '', '', '', '', '', ''],
       ...invoiceData.items.map((item, index) => [
         index + 1,
         item.description,
         item.hsn,
-        item.quantity,
-        item.rate,
         `${item.gstRate}%`,
-        item.amount
+        item.quantity,
+        item.rate.toFixed(2),
+        'CFT',
+        item.amount.toFixed(2)
       ]),
       [''],
-      ['SUMMARY'],
-      ['Subtotal', subtotal],
-      ['CGST', cgst],
-      ['SGST', sgst],
-      ['Total Tax', cgst + sgst],
-      ['Grand Total', grandTotal]
+      ['', '', '', '', '', 'Total', '', subtotal.toFixed(2)],
+      [''],
+      ['', '', '', '', '', 'Add: CGST', '', cgst.toFixed(2)],
+      ['', '', '', '', '', 'Add: SGST', '', sgst.toFixed(2)],
+      [''],
+      ['', '', '', '', '', 'Total Tax Amount', '', (cgst + sgst).toFixed(2)],
+      ['', '', '', '', '', 'Total Amount after Tax', '', grandTotal.toFixed(2)],
+      [''],
+      ['Amount Chargeable (in words)'],
+      [`INR ${this.numberToWords(grandTotal)} Only`],
+      [''],
+      ['Declaration'],
+      [invoiceData.declaration],
+      [''],
+      ['Company\'s Bank Details'],
+      [`A/c Holder\'s Name: ${invoiceData.bankDetails.accountName}`],
+      [`Bank Name: ${invoiceData.bankDetails.bankName}`],
+      [`A/c No.: ${invoiceData.bankDetails.accountNumber}`],
+      [`Branch & IFS Code: ${invoiceData.bankDetails.ifscCode}`],
+      [''],
+      ['for ' + invoiceData.seller.name],
+      [''],
+      [''],
+      ['Authorised Signatory']
     ];
 
     const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    
+    // Set column widths
+    worksheet['!cols'] = [
+      {wch: 5}, {wch: 25}, {wch: 10}, {wch: 8}, {wch: 10}, {wch: 10}, {wch: 5}, {wch: 12}
+    ];
+    
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Invoice');
     
@@ -175,40 +229,51 @@ const EditableInvoice = () => {
     });
   };
 
-  const updateInvoiceData = (field: keyof InvoiceData, value: any) => {
-    setInvoiceData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const updateItem = (itemId: string, field: keyof InvoiceItem, value: any) => {
-    setInvoiceData(prev => ({
-      ...prev,
-      items: prev.items.map(item => 
-        item.id === itemId ? { ...item, [field]: value } : item
-      )
-    }));
-  };
-
-  const addItem = () => {
-    const newItem: InvoiceItem = {
-      id: Date.now().toString(),
-      description: '',
-      hsn: '',
-      quantity: 0,
-      rate: 0,
-      gstRate: 0,
-      amount: 0
-    };
-    setInvoiceData(prev => ({
-      ...prev,
-      items: [...prev.items, newItem]
-    }));
-  };
-
-  const removeItem = (itemId: string) => {
-    setInvoiceData(prev => ({
-      ...prev,
-      items: prev.items.filter(item => item.id !== itemId)
-    }));
+  // Helper function to convert numbers to words (simplified version)
+  const numberToWords = (num: number): string => {
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    
+    if (num === 0) return 'Zero';
+    
+    const integerPart = Math.floor(num);
+    const decimalPart = Math.round((num - integerPart) * 100);
+    
+    let result = '';
+    
+    // Convert integer part
+    if (integerPart >= 10000000) {
+      result += numberToWords(Math.floor(integerPart / 10000000)) + ' Crore ';
+      integerPart %= 10000000;
+    }
+    if (integerPart >= 100000) {
+      result += numberToWords(Math.floor(integerPart / 100000)) + ' Lakh ';
+      integerPart %= 100000;
+    }
+    if (integerPart >= 1000) {
+      result += numberToWords(Math.floor(integerPart / 1000)) + ' Thousand ';
+      integerPart %= 1000;
+    }
+    if (integerPart >= 100) {
+      result += ones[Math.floor(integerPart / 100)] + ' Hundred ';
+      integerPart %= 100;
+    }
+    if (integerPart >= 20) {
+      result += tens[Math.floor(integerPart / 10)] + ' ';
+      integerPart %= 10;
+    }
+    if (integerPart >= 10) {
+      result += teens[integerPart - 10] + ' ';
+    } else if (integerPart > 0) {
+      result += ones[integerPart] + ' ';
+    }
+    
+    if (decimalPart > 0) {
+      result += 'and ' + decimalPart + '/100 ';
+    }
+    
+    return result.trim();
   };
 
   const totals = calculateTotals();
@@ -217,7 +282,7 @@ const EditableInvoice = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">Editable Invoice</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Invoice Preview</h1>
           <div className="flex gap-3">
             <Button 
               onClick={downloadAsPNG} 
@@ -245,28 +310,35 @@ const EditableInvoice = () => {
           <InvoiceHeader 
             invoiceNumber={invoiceData.invoiceNumber}
             date={invoiceData.date}
-            onUpdate={updateInvoiceData}
+            deliveryDetails={{
+              deliveryNote: invoiceData.deliveryNote,
+              paymentTerms: invoiceData.paymentTerms,
+              referenceNo: invoiceData.referenceNo,
+              referenceDate: invoiceData.referenceDate,
+              otherReferences: invoiceData.otherReferences,
+              buyerOrderNo: invoiceData.buyerOrderNo,
+              buyerOrderDate: invoiceData.buyerOrderDate,
+              dispatchDocNo: invoiceData.dispatchDocNo,
+              deliveryNoteDate: invoiceData.deliveryNoteDate,
+              dispatchedThrough: invoiceData.dispatchedThrough,
+              destination: invoiceData.destination,
+              termsOfDelivery: invoiceData.termsOfDelivery
+            }}
           />
           
           <PartyDetails 
             seller={invoiceData.seller}
             buyer={invoiceData.buyer}
-            onUpdate={updateInvoiceData}
           />
           
-          <ItemTable 
-            items={invoiceData.items}
-            onUpdateItem={updateItem}
-            onAddItem={addItem}
-            onRemoveItem={removeItem}
-          />
+          <ItemTable items={invoiceData.items} />
           
           <SummaryFooter totals={totals} />
           
           <BankDetails 
             bankDetails={invoiceData.bankDetails}
             declaration={invoiceData.declaration}
-            onUpdate={updateInvoiceData}
+            companyName={invoiceData.seller.name}
           />
         </Card>
       </div>
