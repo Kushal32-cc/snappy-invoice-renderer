@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import WebInvoice from "./pages/WebInvoice";
 import PdfViewer from "./pages/PdfViewer";
+import Invoices from "./pages/Invoices";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,6 +22,7 @@ const App = () => (
           <Route path="/" element={<Home />} />
           <Route path="/web-invoice" element={<WebInvoice />} />
           <Route path="/pdf-viewer" element={<PdfViewer />} />
+          <Route path="/invoices" element={<Invoices />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
