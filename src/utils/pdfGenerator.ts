@@ -17,6 +17,11 @@ export const generateInvoicePDF = async (companyName: string, date: string): Pro
   const blackColor = rgb(0, 0, 0);
   const grayColor = rgb(0.5, 0.5, 0.5);
 
+  // Helper function to format currency without rupee symbol
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   // Header - TAX INVOICE
   page.drawText('TAX INVOICE', {
     x: margin,
@@ -297,24 +302,66 @@ export const generateInvoicePDF = async (companyName: string, date: string): Pro
 
   currentY -= itemsTableHeight + 40;
 
-  // Summary
-  page.drawText('Subtotal: ₹27,375.00', {
-    x: width - 200,
-    y: currentY,
-    size: 10,
-    font: font,
-    color: blackColor,
+  // Tax Summary Section
+  page.drawRectangle({
+    x: margin,
+    y: currentY - 100,
+    width: width - 2 * margin,
+    height: 100,
+    color: rgb(0.95, 0.98, 1),
+    borderColor: primaryColor,
+    borderWidth: 1,
   });
 
-  page.drawText('CGST (2.5%): ₹684.38', {
-    x: width - 200,
-    y: currentY - 15,
-    size: 10,
-    font: font,
-    color: blackColor,
+  page.drawText('Tax Summary', {
+    x: margin + 10,
+    y: currentY - 20,
+    size: 12,
+    font: boldFont,
+    color: primaryColor,
   });
 
-  page.drawText('SGST (2.5%): ₹684.38', {
+  // Tax table header
+  page.drawRectangle({
+    x: margin + 10,
+    y: currentY - 50,
+    width: 300,
+    height: 15,
+    color: primaryColor,
+  });
+
+  const taxHeaders = ['HSN/SAC', 'Taxable Value', 'CGST', 'SGST', 'Total Tax'];
+  let taxHeaderX = margin + 15;
+  const taxColWidths = [60, 80, 60, 60, 60];
+
+  taxHeaders.forEach((header, index) => {
+    page.drawText(header, {
+      x: taxHeaderX,
+      y: currentY - 45,
+      size: 8,
+      font: boldFont,
+      color: rgb(1, 1, 1),
+    });
+    taxHeaderX += taxColWidths[index];
+  });
+
+  // Tax table data
+  const taxData = ['251710', formatCurrency(27375), formatCurrency(684.38), formatCurrency(684.38), formatCurrency(1368.75)];
+  let taxDataX = margin + 15;
+
+  taxData.forEach((data, index) => {
+    page.drawText(data, {
+      x: taxDataX,
+      y: currentY - 65,
+      size: 8,
+      font: font,
+      color: blackColor,
+    });
+    taxDataX += taxColWidths[index];
+  });
+
+  // Summary on right side
+  page.drawText('Subtotal: ' + formatCurrency(27375), {
     x: width - 200,
     y: currentY - 30,
     size: 10,
@@ -322,18 +369,36 @@ export const generateInvoicePDF = async (companyName: string, date: string): Pro
     color: blackColor,
   });
 
-  page.drawText('Grand Total: ₹28,743.75', {
+  page.drawText('CGST (2.5%): ' + formatCurrency(684.38), {
     x: width - 200,
-    y: currentY - 50,
+    y: currentY - 45,
+    size: 10,
+    font: font,
+    color: blackColor,
+  });
+
+  page.drawText('SGST (2.5%): ' + formatCurrency(684.38), {
+    x: width - 200,
+    y: currentY - 60,
+    size: 10,
+    font: font,
+    color: blackColor,
+  });
+
+  page.drawText('Grand Total: ' + formatCurrency(28743.75), {
+    x: width - 200,
+    y: currentY - 80,
     size: 12,
     font: boldFont,
     color: primaryColor,
   });
 
+  currentY -= 120;
+
   // Amount in words
   page.drawText('Amount Chargeable (in words)', {
     x: margin,
-    y: currentY - 20,
+    y: currentY,
     size: 10,
     font: boldFont,
     color: primaryColor,
@@ -341,13 +406,13 @@ export const generateInvoicePDF = async (companyName: string, date: string): Pro
 
   page.drawText('Indian Rupees Twenty Eight Thousand Seven Hundred Forty Three and Seventy Five Paise Only', {
     x: margin,
-    y: currentY - 35,
+    y: currentY - 15,
     size: 9,
     font: font,
     color: blackColor,
   });
 
-  currentY -= 80;
+  currentY -= 50;
 
   // Bank Details
   page.drawText('Company\'s Bank Details', {
